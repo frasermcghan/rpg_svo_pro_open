@@ -12,45 +12,39 @@
 
 namespace svo {
 
-class FrameHandlerArray : public FrameHandlerBase
-{
+class FrameHandlerArray : public FrameHandlerBase {
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   typedef std::shared_ptr<FrameHandlerArray> Ptr;
 
   /// Default constructor
-  FrameHandlerArray(
-      const BaseOptions& base_options,
-      const DepthFilterOptions& depth_filter_options,
-      const DetectorOptions& feature_detector_options,
-      const InitializationOptions& init_options,
-      const ReprojectorOptions& reprojector_options,
-      const FeatureTrackerOptions& tracker_options,
-      const CameraBundle::Ptr& cameras);
+  FrameHandlerArray(const BaseOptions &base_options,
+                    const DepthFilterOptions &depth_filter_options,
+                    const DetectorOptions &feature_detector_options,
+                    const InitializationOptions &init_options,
+                    const ReprojectorOptions &reprojector_options,
+                    const FeatureTrackerOptions &tracker_options,
+                    const CameraBundle::Ptr &cameras);
 
   virtual ~FrameHandlerArray() = default;
 
   // deprecated. use addImageBundle().
-  void addImages(
-      const std::vector<cv::Mat>& images,
-      const uint64_t timestamp);
+  void addImages(const std::vector<cv::Mat> &images, const bool &kf_decision,
+                 const uint64_t timestamp);
 
-  const FrameBundlePtr& lastFrames() const
-  {
-    return last_frames_;
-  }
-  
+  const FrameBundlePtr &lastFrames() const { return last_frames_; }
+
 protected:
-
   /// Pipeline implementation. Called by base class.
-  virtual UpdateResult processFrameBundle() override;
+  virtual UpdateResult
+  processFrameBundle(const bool &kf_decision = true) override;
 
   UpdateResult processFirstFrame();
 
   UpdateResult processSecondFrame();
 
-  UpdateResult processFrame();
+  UpdateResult processFrame(const bool &kf_decision = true);
 
   UpdateResult makeKeyframe(const size_t camera_id);
 

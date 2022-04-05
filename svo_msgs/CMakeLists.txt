@@ -6,6 +6,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   geometry_msgs
   sensor_msgs
+  std_msgs
 )
 
 # search for all msg files
