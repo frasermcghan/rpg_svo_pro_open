@@ -24,6 +24,7 @@ generate_messages(
   DEPENDENCIES
   geometry_msgs
   sensor_msgs
+  std_msgs
 )
 
 # export the dependencis of this package for who ever depends on us

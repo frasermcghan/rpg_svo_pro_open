@@ -137,7 +137,8 @@ SvoInterface::~SvoInterface() {
 
 void SvoInterface::processImageBundle(const std::vector<cv::Mat> &images,
                                       const int64_t timestamp_nanoseconds,
-                                      const bool &kf_decision) {
+                                      const bool &kf_decision,
+                                      const bool &reset_needed) {
   if (kf_decision == true) {
     SVO_INFO_STREAM("KF True");
   } else if (kf_decision == false) {
@@ -161,6 +162,12 @@ void SvoInterface::processImageBundle(const std::vector<cv::Mat> &images,
   }
   SVO_INFO_STREAM("Adding image bundle");
   svo_->addImageBundle(images, kf_decision, timestamp_nanoseconds);
+
+  // Restart SVO if terminal state
+  if (reset_needed == true) {
+    svo_->reset();
+    svo_->start();
+  }
 }
 
 void SvoInterface::publishResults(const std::vector<cv::Mat> &images,
@@ -331,7 +338,8 @@ void SvoInterface::monoCallback(const sensor_msgs::ImageConstPtr &msg) {
 
 void SvoInterface::monoCallbackRL(
     const sensor_msgs::ImageConstPtr &msg,
-    const svo_msgs::KeyframeDecision::ConstPtr &kf_decision) {
+    const svo_msgs::KeyframeDecision::ConstPtr &kf_decision,
+    const svo_msgs::ResetNeeded::ConstPtr &reset_needed) {
 
   SVO_INFO_STREAM("Entering monoCallbackRL");
 
@@ -363,7 +371,8 @@ void SvoInterface::monoCallbackRL(
 
   imageCallbackPreprocessing(msg->header.stamp.toNSec());
 
-  processImageBundle(images, msg->header.stamp.toNSec(), kf_decision->decision);
+  processImageBundle(images, msg->header.stamp.toNSec(), kf_decision->decision,
+                     reset_needed->decision);
 
   publishResults(images, msg->header.stamp.toNSec());
 
@@ -408,7 +417,8 @@ void SvoInterface::stereoCallback(const sensor_msgs::ImageConstPtr &msg0,
 void SvoInterface::stereoCallbackRL(
     const sensor_msgs::ImageConstPtr &msg0,
     const sensor_msgs::ImageConstPtr &msg1,
-    const svo_msgs::KeyframeDecision::ConstPtr &kf_decision) {
+    const svo_msgs::KeyframeDecision::ConstPtr &kf_decision,
+    const svo_msgs::ResetNeeded::ConstPtr &reset_needed) {
   if (idle_)
     return;
 
@@ -427,7 +437,8 @@ void SvoInterface::stereoCallbackRL(
 
   imageCallbackPreprocessing(msg0->header.stamp.toNSec());
 
-  processImageBundle({img0, img1}, msg0->header.stamp.toNSec());
+  processImageBundle({img0, img1}, msg0->header.stamp.toNSec(),
+                     kf_decision->decision, reset_needed->decision);
   publishResults({img0, img1}, msg0->header.stamp.toNSec());
 
   if (svo_->stage() == Stage::kPaused && automatic_reinitialization_)
@@ -549,12 +560,11 @@ void SvoInterface::monoLoop() {
 void SvoInterface::monoLoopRL() {
   SVO_INFO_STREAM("SvoNode: Started Image loop RL.");
 
-  typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image,
-                                                    svo_msgs::KeyframeDecision>
+  typedef message_filters::sync_policies::ExactTime<
+      sensor_msgs::Image, svo_msgs::KeyframeDecision, svo_msgs::ResetNeeded>
       ExactPolicy;
   typedef message_filters::Synchronizer<ExactPolicy> ExactSync;
 
-  // ros::NodeHandle nh(nh_, "image_thread");
   ros::NodeHandle nh;
   ros::CallbackQueue queue;
   nh.setCallbackQueue(&queue);
@@ -573,13 +583,19 @@ void SvoInterface::monoLoopRL() {
       vk::param<std::string>(pnh_, "keyframe_decision_topic", "/kf_decision"));
   message_filters::Subscriber<svo_msgs::KeyframeDecision> kf_sub(nh, kf_topic,
                                                                  1);
+  SVO_INFO_STREAM("Subscribing to resets.");
+  // subscribe to reset msg
+  std::string reset_topic(
+      vk::param<std::string>(pnh_, "reset_needed_topic", "/reset_needed"));
+  message_filters::Subscriber<svo_msgs::ResetNeeded> reset_sub(nh, reset_topic,
+                                                               1);
 
   SVO_INFO_STREAM("Syncing subs.");
-  ExactSync sync_sub(ExactPolicy(5), img_sub, kf_sub);
+  ExactSync sync_sub(ExactPolicy(5), img_sub, kf_sub, reset_sub);
 
   SVO_INFO_STREAM("Calling back.");
   sync_sub.registerCallback(
-      boost::bind(&svo::SvoInterface::monoCallbackRL, this, _1, _2));
+      boost::bind(&svo::SvoInterface::monoCallbackRL, this, _1, _2, _3));
   SVO_INFO_STREAM("Called back.");
 
   while (ros::ok() && !quit_) {
@@ -617,7 +633,8 @@ void SvoInterface::stereoLoop() {
 
 void SvoInterface::stereoLoopRL() {
   typedef message_filters::sync_policies::ExactTime<
-      sensor_msgs::Image, sensor_msgs::Image, svo_msgs::KeyframeDecision>
+      sensor_msgs::Image, sensor_msgs::Image, svo_msgs::KeyframeDecision,
+      svo_msgs::ResetNeeded>
       ExactPolicy;
   typedef message_filters::Synchronizer<ExactPolicy> ExactSync;
 
@@ -642,9 +659,15 @@ void SvoInterface::stereoLoopRL() {
   message_filters::Subscriber<svo_msgs::KeyframeDecision> kf_sub(nh, kf_topic,
                                                                  1);
 
-  ExactSync sync_sub(ExactPolicy(5), img0_sub, img1_sub, kf_sub);
+  // subscribe to reset msg
+  std::string reset_topic(
+      vk::param<std::string>(pnh_, "reset_needed_topic", "/reset_needed"));
+  message_filters::Subscriber<svo_msgs::ResetNeeded> reset_sub(nh, reset_topic,
+                                                               1);
+
+  ExactSync sync_sub(ExactPolicy(5), img0_sub, img1_sub, kf_sub, reset_sub);
   sync_sub.registerCallback(
-      boost::bind(&svo::SvoInterface::stereoCallbackRL, this, _1, _2, _3));
+      boost::bind(&svo::SvoInterface::stereoCallbackRL, this, _1, _2, _3, _4));
 
   while (ros::ok() && !quit_) {
     queue.callAvailable(ros::WallDuration(0.1));

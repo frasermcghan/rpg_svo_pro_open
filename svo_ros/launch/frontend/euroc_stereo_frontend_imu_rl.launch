@@ -6,6 +6,8 @@
     <param name="cam1_topic" value="/cam1/image_raw" type="str" />
     <param name="imu_topic" value="/imu0" type="str" />
     <param name="calib_file" value="$(find svo_ros)/param/calib/euroc_stereo.yaml" type="str" />
+    <param name="use_sim_time" value="true" />
+    
 
     <rosparam file="$(find svo_ros)/param/pinhole_rl.yaml" />
     <rosparam file="$(find svo_ros)/param/frontend_imu/euroc_stereo_imu_rl.yaml" />
@@ -13,6 +15,5 @@
   </node>
 
   <!-- RVIZ + SVO GUI -->
-  <node name="vis" pkg="rviz" type="rviz" args=" -d $(find svo_ros)/rviz_config.rviz" />
-  <node name="svo_gui" pkg="rqt_gui" type="rqt_gui" args="-s rqt_svo.svo.Svo --args --topic svo" />
+  <!-- <node name="vis" pkg="rviz" type="rviz" args=" -d $(find svo_ros)/rviz_config.rviz" /> -->
 </launch>

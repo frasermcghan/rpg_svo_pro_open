@@ -7,6 +7,7 @@
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/String.h> // user-input
 #include <svo_msgs/KeyframeDecision.h>
+#include <svo_msgs/ResetNeeded.h>
 
 #include <svo/common/camera_fwd.h>
 #include <svo/common/transformation.h>
@@ -62,7 +63,8 @@ public:
   // Processing
   void processImageBundle(const std::vector<cv::Mat> &images,
                           int64_t timestamp_nanoseconds,
-                          const bool &kf_decision = true);
+                          const bool &kf_decision = true,
+                          const bool &state_terminal = false);
 
   bool setImuPrior(const int64_t timestamp_nanoseconds);
 
@@ -72,13 +74,14 @@ public:
   // Subscription and callbacks
   void monoCallback(const sensor_msgs::ImageConstPtr &msg);
   void monoCallbackRL(const sensor_msgs::ImageConstPtr &msg,
-                      const svo_msgs::KeyframeDecision::ConstPtr &kf_decision);
+                      const svo_msgs::KeyframeDecision::ConstPtr &kf_decision,
+                      const svo_msgs::ResetNeeded::ConstPtr &reset_needed);
   void stereoCallback(const sensor_msgs::ImageConstPtr &msg0,
                       const sensor_msgs::ImageConstPtr &msg1);
-  void
-  stereoCallbackRL(const sensor_msgs::ImageConstPtr &msg0,
-                   const sensor_msgs::ImageConstPtr &msg1,
-                   const svo_msgs::KeyframeDecision::ConstPtr &kf_decision);
+  void stereoCallbackRL(const sensor_msgs::ImageConstPtr &msg0,
+                        const sensor_msgs::ImageConstPtr &msg1,
+                        const svo_msgs::KeyframeDecision::ConstPtr &kf_decision,
+                        const svo_msgs::ResetNeeded::ConstPtr &reset_needed);
   void imuCallback(const sensor_msgs::ImuConstPtr &imu_msg);
   void inputKeyCallback(const std_msgs::StringConstPtr &key_input);
 
